@@ -19,35 +19,36 @@ sgdisk -n 2:0:-10m -t 2:bf00 "$DISK"
 
 
 #ZFS-Filesystem______________________________________________________________|
-echo "somestupidkey" > /etc/zfs/zroot.key
-chmod 000 /etc/zfs/zroot.key
 
-zpool create -f -o ashift=12 \
- -O compression=lz4 \
- -O acltype=posixacl \
- -O xattr=sa \
- -O relatime=on \
- -O encryption=aes-256-gcm \
- -O keylocation=file:///etc/zfs/zroot.key \
- -O keyformat=passphrase \
- -o autotrim=on \
- -m none zroot "$POOL"
-
-zpool set cachefile=/etc/zfs/zpool.cache zroot
+zpool create -f -o ashift=12         \
+             -O acltype=posixacl       \
+             -O relatime=on            \
+             -O xattr=sa               \
+             -O dnodesize=legacy       \
+             -O normalization=formD    \
+             -O mountpoint=none        \
+             -O canmount=off           \
+             -O devices=off            \
+             -R /mnt                   \
+             -O compression=lz4        \
+             -O encryption=aes-256-gcm \
+             -O keyformat=passphrase   \
+             -O keylocation=prompt     \
+             zroot "$POOL"
 
 zfs create -o mountpoint=none zroot/ROOT
 zfs create -o mountpoint=/ -o canmount=noauto zroot/ROOT/default
 zfs create -o mountpoint=none zroot/data
 zfs create -o mountpoint=/home zroot/data/home
 
+zpool set cachefile=/etc/zfs/zpool.cache zroot
 zpool set bootfs=zroot/ROOT/default zroot
 
 zpool export zroot
 
-
 #mount Filesystem____________________________________________________________|
-zpool import -N -R /mnt zroot 
-#zpool import -d /dev/disk/by-id -R /mnt zroot -N
+zpool import -d /dev/disk/by-id -R /mnt zroot -N
+# zpool import 9876543212345678910 -R /mnt zroot
 zfs load-key -L prompt zroot
 zfs mount zroot/ROOT/default
 zfs mount -a
@@ -60,7 +61,7 @@ mount --mkdir $EFI /mnt/efi
 
 
 #base-install________________________________________________________________|
-pacstrap -K /mnt    \
+pacstrap -K -c /mnt    \
     base            \
     git             \
     neovim          \
@@ -73,12 +74,14 @@ genfstab -U -p /mnt >> /mnt/etc/fstab
 cp /etc/hostid /mnt/etc/hostid
 mkdir /mnt/etc/zfs
 cp /etc/zfs/zpool.cache /mnt/etc/zfs/zpool.cache
-cp /etc/zfs/zroot.key /mnt/etc/zfs
 
 
 #chroot______________________________________________________________________|
 systemd-nspawn -D /mnt
 passwd
+rm -rf /etc/securetty /usr/share/factory/etc/securetty
+nvim /usr/lib/tmpfiles.d/arch.conf
+# delete entry /etc/securetty"
 logout
 systemd-nspawn -b -D /mnt
 
@@ -104,11 +107,12 @@ pacman-key --recv-keys "$zfsKey"
 pacman-key --finger "$zfsKey"
 pacman-key --lsign-key "$zfsKey"
 
+#chaotic 4 downgrade
 
 cat > /etc/mkinitcpio.conf <<EOF
 MODULES=(i915 intel_agp)
 BINARIES=()
-FILES=(/etc/zfs/zroot.key)
+FILES=()
 HOOKS=(base udev autodetect modconf block keyboard keymap zfs filesystems)
 COMPRESSION="zstd"
 EOF
@@ -129,7 +133,7 @@ bash topinstall.sh
 pacman -R linux-lts
 
 #zfs-install_________________________________________________________________|
-pacman -S zfs-dkms zfs-utils linux-headers linux-firmware
+pacman -S zfs-linux zfs-utils linux-headers linux-firmware
 
 
 #ZFSBootMenu_________________________________________________________________|
