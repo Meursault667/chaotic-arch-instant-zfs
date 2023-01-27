@@ -190,11 +190,14 @@ swapon -av
 pacman -Si zfs-linux-lts
 pacman -Qi linux-lts
 
-# wenn linux-lts [version] > zfs-linux-lts [depends on] 
+# wenn linux [version] > zfs-linux [depends on] 
 # add chaotic aur 
 pacman -S downgrade
-downgrade linux-lts
-pacman -S zfs-linux-lts
+downgrade linux
+pacman -S zfs-linux
+
+# change /etc/pacman.conf
+IgnorePkg
 
 zpool set cachefile=none zroot
 
