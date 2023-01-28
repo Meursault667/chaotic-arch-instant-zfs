@@ -96,6 +96,11 @@ nvim /usr/lib/tmpfiles.d/arch.conf
 logout
 systemd-nspawn -b -D /mnt
 
+#instant-install_____________________________________________________________|
+git clone https://github.com/instantOS/instantARCH
+cd instantARCH
+bash topinstall.sh
+pacman -R linux-lts
 
 #chroot-conf_________________________________________________________________|
 systemd-firstboot
@@ -155,11 +160,7 @@ EOF
 pacman-key --keyserver keyserver.ubuntu.com -r "$enosKey"
 sudo pacman-key --lsign "$enosKey"
 
-#instant-install_____________________________________________________________|
-git clone https://github.com/instantOS/instantARCH
-cd instantARCH
-bash topinstall.sh
-pacman -R linux-lts
+
 
 #zfs-install_________________________________________________________________|
 pacman -S zfs-linux zfs-utils linux-headers linux-firmware 
