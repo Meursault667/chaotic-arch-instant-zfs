@@ -7,6 +7,7 @@ NOT READY
 export DISK="/dev/disk/by-id/ata-SAMSUNG_MZ7LN256HCHP-000L7_S20HNXAGA36539"
 export EFI="$DISK"-part1
 export POOL="$DISK"-part2
+export USER="usr"
 
 #----------------------------------------------------------------------------|
 
@@ -40,6 +41,7 @@ zfs create -o mountpoint=none zroot/ROOT
 zfs create -o mountpoint=/ -o canmount=noauto zroot/ROOT/default
 zfs create -o mountpoint=none zroot/data
 zfs create -o mountpoint=/home zroot/data/home
+zfs create zroot/data/home/"$USER"
 
 zpool set cachefile=/etc/zfs/zpool.cache zroot
 zpool set bootfs=zroot/ROOT/default zroot
@@ -69,7 +71,8 @@ pacstrap -K -c /mnt    \
     git             \
     neovim          \
     nnn             \
-    efibootmgr
+    efibootmgr      \
+    downgrade       \
 
 
 #base-conf___________________________________________________________________|
@@ -79,8 +82,6 @@ mkdir /mnt/etc/zfs
 cp /etc/zfs/zpool.cache /mnt/etc/zfs/zpool.cache
 
 
-  useradd -m ${user}
-  chown -R ${user}:${user} /home/${user}
   
 #chroot______________________________________________________________________|
 systemd-nspawn -D /mnt
@@ -113,17 +114,42 @@ EOF
 
 zfsKey="DDF7DB817396A49B2A2723F7403BD972F75D9D76"
 
+
 pacman-key --recv-keys "$zfsKey"
-pacman-key --finger "$zfsKey"
 pacman-key --lsign-key "$zfsKey"
 
 
 enosKey="003DB8B0CB23504F"
 
+cat < EOF >> /etc/pacman.d/endeavouros-mirrorlist
+## Germany
+Server = https://mirror.alpix.eu/endeavouros/repo/$repo/$arch
+Server = https://de.freedif.org/EndeavourOS/repo/$repo/$arch
+Server = https://mirror.moson.org/endeavouros/repo/$repo/$arch
+
+## Netherlands
+Server = https://mirror.erickochen.nl/endeavouros/repo/$repo/$arch
+
+## Sweden
+Server = https://ftp.acc.umu.se/mirror/endeavouros/repo/$repo/$arch
+Server = https://mirror.linux.pizza/endeavouros/repo/$repo/$arch
+
+## Canada
+Server = https://ca.gate.endeavouros.com/endeavouros/repo/$repo/$arch
+
+## China
+Server = https://mirrors.tuna.tsinghua.edu.cn/endeavouros/repo/$repo/$arch
+
+## Vietnam
+Server = https://mirror.freedif.org/EndeavourOS/repo/$repo/$arch
+
+## Github
+Server = https://raw.githubusercontent.com/endeavouros-team/repo/master/$repo/$arch
+
+EOF
+
 pacman-key --keyserver keyserver.ubuntu.com -r "$enosKey"
-
-
-
+sudo pacman-key --lsign "$enosKey"
 
 cat > /etc/mkinitcpio.conf <<EOF
 MODULES=(i915 intel_agp)
@@ -133,25 +159,12 @@ HOOKS=(base udev autodetect modconf block keyboard keymap zfs filesystems)
 COMPRESSION="zstd"
 EOF
 
-
 cat > /etc/mkinitcpio.d/linux.preset <<"EOF"
 ALL_config="/etc/mkinitcpio.conf"
 ALL_kver="/boot/vmlinuz-linux"
 PRESETS=('default')
 default_image="/boot/initramfs-linux.img"
 EOF
-
-cat > /etc/dracut.conf.d/zfs.conf <<"EOF"
-hostonly="yes"
-nofsck="yes"
-compress="zstd"
-add_drivers+=" i915 "
-add_dracutmodules+=" zfs "
-omit_dracutmodules+=" btrfs "
-
-# - [ ] dracut-hook
-# - [ ]
-
 
 #instant-install_____________________________________________________________|
 git clone https://github.com/instantOS/instantARCH
@@ -165,8 +178,7 @@ pacman -S zfs-linux zfs-utils linux-headers linux-firmware
 
 #ZFSBootMenu_________________________________________________________________|
 yay -S zfsbootmenu-efi-bin
-zfs set org.zfsbootmenu:commandline="rw" zroot/ROOT
-zfs set org.zfsbootmenu:keysource="zroot/ROOT/default" zroot
+zfs set org.zfsbootmenu:commandline="rw" zroot/ROOT/default
 efibootmgr -c -d "$DISK" -p 1 -L "ZFSBootMenu" -l '\EFI\zbm\zfsbootmenu-release-vmlinuz-x86_64.EFI'
 
 
@@ -255,4 +267,17 @@ Append (adding to the end of the file) to /etc/pacman.conf:
 [chaotic-aur]
 Include = /etc/pacman.d/chaotic-mirrorlist 
 
+# DRACUT
+
+cat > /etc/dracut.conf.d/zfs.conf <<"EOF"
+hostonly="yes"
+nofsck="yes"
+compress="zstd"
+add_drivers+=" i915 "
+add_dracutmodules+=" zfs "
+omit_dracutmodules+=" btrfs "
+
+dracut
+# - [ ] dracut-hook
+# - [ ]
 ```
