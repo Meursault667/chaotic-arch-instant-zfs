@@ -7,7 +7,6 @@ NOT READY
 export DISK="/dev/disk/by-id/ata-SAMSUNG_MZ7LN256HCHP-000L7_S20HNXAGA36539"
 export EFI="$DISK"-part1
 export POOL="$DISK"-part2
-export USER="usr"
 
 #----------------------------------------------------------------------------|
 
@@ -41,7 +40,6 @@ zfs create -o mountpoint=none zroot/ROOT
 zfs create -o mountpoint=/ -o canmount=noauto zroot/ROOT/default
 zfs create -o mountpoint=none zroot/data
 zfs create -o mountpoint=/home zroot/data/home
-zfs create zroot/data/home/"$USER"
 
 zpool set cachefile=/etc/zfs/zpool.cache zroot
 zpool set bootfs=zroot/ROOT/default zroot
@@ -49,7 +47,6 @@ zpool set bootfs=zroot/ROOT/default zroot
 zpool export zroot
 
 #mount Filesystem____________________________________________________________|
-zpool import -d /dev/disk/by-id -R /mnt zroot -N
 # zpool import yourstupidid -R /mnt zroot
 # get your stupid id with "zpool import"
 zfs load-key -L prompt zroot
@@ -80,6 +77,13 @@ genfstab -U -p /mnt >> /mnt/etc/fstab
 cp /etc/hostid /mnt/etc/hostid
 mkdir /mnt/etc/zfs
 cp /etc/zfs/zpool.cache /mnt/etc/zfs/zpool.cache
+
+hwclock --systohc
+systemctl enable systemd-timesyncd --root=/mnt
+
+rm -f /mnt/etc/localtime
+systemd-firstboot --root=/mnt --prompt --force
+zgenhostid -f -o /mnt/etc/hostid
 
 
   
@@ -151,6 +155,15 @@ EOF
 pacman-key --keyserver keyserver.ubuntu.com -r "$enosKey"
 sudo pacman-key --lsign "$enosKey"
 
+#instant-install_____________________________________________________________|
+git clone https://github.com/instantOS/instantARCH
+cd instantARCH
+bash topinstall.sh
+pacman -R linux-lts
+
+#zfs-install_________________________________________________________________|
+pacman -S zfs-linux zfs-utils linux-headers linux-firmware 
+
 cat > /etc/mkinitcpio.conf <<EOF
 MODULES=(i915 intel_agp)
 BINARIES=()
@@ -165,17 +178,6 @@ ALL_kver="/boot/vmlinuz-linux"
 PRESETS=('default')
 default_image="/boot/initramfs-linux.img"
 EOF
-
-#instant-install_____________________________________________________________|
-git clone https://github.com/instantOS/instantARCH
-cd instantARCH
-bash topinstall.sh
-pacman -R linux-lts
-
-#zfs-install_________________________________________________________________|
-pacman -S zfs-linux zfs-utils linux-headers linux-firmware 
-
-
 #ZFSBootMenu_________________________________________________________________|
 yay -S zfsbootmenu-efi-bin
 zfs set org.zfsbootmenu:commandline="rw" zroot/ROOT/default
