@@ -48,7 +48,8 @@ zpool export zroot
 
 #mount Filesystem____________________________________________________________|
 zpool import -d /dev/disk/by-id -R /mnt zroot -N
-# zpool import 9876543212345678910 -R /mnt zroot
+# zpool import yourstupidid -R /mnt zroot
+# get your stupid id with "zpool import"
 zfs load-key -L prompt zroot
 zfs mount zroot/ROOT/default
 zfs mount -a
@@ -78,6 +79,9 @@ mkdir /mnt/etc/zfs
 cp /etc/zfs/zpool.cache /mnt/etc/zfs/zpool.cache
 
 
+  useradd -m ${user}
+  chown -R ${user}:${user} /home/${user}
+  
 #chroot______________________________________________________________________|
 systemd-nspawn -D /mnt
 passwd
@@ -161,7 +165,7 @@ pacman -S zfs-linux zfs-utils linux-headers linux-firmware
 
 #ZFSBootMenu_________________________________________________________________|
 yay -S zfsbootmenu-efi-bin
-zfs set org.zfsbootmenu:commandline="quiet loglevel=4 rw" zroot/ROOT
+zfs set org.zfsbootmenu:commandline="rw" zroot/ROOT
 zfs set org.zfsbootmenu:keysource="zroot/ROOT/default" zroot
 efibootmgr -c -d "$DISK" -p 1 -L "ZFSBootMenu" -l '\EFI\zbm\zfsbootmenu-release-vmlinuz-x86_64.EFI'
 
