@@ -53,6 +53,8 @@ zfs load-key -L prompt zroot
 zfs mount zroot/ROOT/default
 zfs mount -a
 
+# o k ?______________________________________________________________________|
+zpool status -v
 mount | grep mnt
 
 #efi_________________________________________________________________________|
@@ -89,7 +91,7 @@ systemd-nspawn -b -D /mnt
 #chroot-conf_________________________________________________________________|
 systemd-firstboot
 
-cat << EOF >> /etc/pacman.conf
+cat < EOF >> /etc/pacman.conf
 
 [archzfs]
 # Origin Server - France
@@ -99,6 +101,10 @@ Server = http://mirror.sum7.eu/archlinux/archzfs/$repo/x86_64
 # Mirror - Germany
 Server = https://mirror.biocrafting.net/archlinux/archzfs/$repo/x86_64
 
+[endeavouros]
+SigLevel = PackageRequired
+Include = /etc/pacman.d/endeavouros-mirrorlist
+
 EOF
 
 zfsKey="DDF7DB817396A49B2A2723F7403BD972F75D9D76"
@@ -107,7 +113,13 @@ pacman-key --recv-keys "$zfsKey"
 pacman-key --finger "$zfsKey"
 pacman-key --lsign-key "$zfsKey"
 
-#chaotic 4 downgrade
+
+enosKey="003DB8B0CB23504F"
+
+pacman-key --keyserver keyserver.ubuntu.com -r "$enosKey"
+
+
+
 
 cat > /etc/mkinitcpio.conf <<EOF
 MODULES=(i915 intel_agp)
@@ -117,6 +129,7 @@ HOOKS=(base udev autodetect modconf block keyboard keymap zfs filesystems)
 COMPRESSION="zstd"
 EOF
 
+
 cat > /etc/mkinitcpio.d/linux.preset <<"EOF"
 ALL_config="/etc/mkinitcpio.conf"
 ALL_kver="/boot/vmlinuz-linux"
@@ -124,6 +137,16 @@ PRESETS=('default')
 default_image="/boot/initramfs-linux.img"
 EOF
 
+cat > /etc/dracut.conf.d/zfs.conf <<"EOF"
+hostonly="yes"
+nofsck="yes"
+compress="zstd"
+add_drivers+=" i915 "
+add_dracutmodules+=" zfs "
+omit_dracutmodules+=" btrfs "
+
+# - [ ] dracut-hook
+# - [ ]
 
 
 #instant-install_____________________________________________________________|
@@ -133,7 +156,7 @@ bash topinstall.sh
 pacman -R linux-lts
 
 #zfs-install_________________________________________________________________|
-pacman -S zfs-linux zfs-utils linux-headers linux-firmware
+pacman -S zfs-linux zfs-utils linux-headers linux-firmware 
 
 
 #ZFSBootMenu_________________________________________________________________|
@@ -144,18 +167,19 @@ efibootmgr -c -d "$DISK" -p 1 -L "ZFSBootMenu" -l '\EFI\zbm\zfsbootmenu-release-
 
 
 #Enable Services_____________________________________________________________|
-systemctl enable zfs.target
+zpool set cachefile=/etc/zfs/zpool.cache zroot
 systemctl enable zfs-import-cache.service
-systemctl enable zfs-mount.service
 systemctl enable zfs-import.target
 
 mkdir /etc/zfs/zfs-list.cache
+ln -s /usr/lib/zfs/zed.d/history_event-zfs-list-cacher.sh /etc/zfs/zed.d
+systemctl enable zfs.target
+systemctl enable zfs-zed.service
 touch /etc/zfs/zfs-list.cache/zroot
-zed -F &
-cat /etc/zfs/zfs-list.cache/zroot
+
 
 # -> if empty
-# zfs set canmount=noauto   zroot/ROOT/default
+# zfs set canmount=noauto   zroot/ROOT/[...]
 
 zgenhostid $(hostid)
 
@@ -214,6 +238,9 @@ zfs load-key -a
 zfs mount rpool/ROOT/default
 zfs mount -a
 mount "$DISK"-part1 /mnt/efi
+
+## endeavor repo
+
 
 ## chaotic aur
 pacman-key --recv-key FBA220DFC880C036 --keyserver keyserver.ubuntu.com
