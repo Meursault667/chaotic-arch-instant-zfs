@@ -75,18 +75,10 @@ pacstrap -K -c /mnt    \
 
 #base-conf___________________________________________________________________|
 genfstab -U -p /mnt >> /mnt/etc/fstab
-cp /etc/hostid /mnt/etc/hostid
 mkdir /mnt/etc/zfs
 cp /etc/zfs/zpool.cache /mnt/etc/zfs/zpool.cache
-
-hwclock --systohc
-systemctl enable systemd-timesyncd --root=/mnt
-
 rm -f /mnt/etc/localtime
-systemd-firstboot --root=/mnt --prompt --force
 zgenhostid -f -o /mnt/etc/hostid
-
-
   
 #chroot______________________________________________________________________|
 systemd-nspawn -D /mnt
@@ -104,6 +96,11 @@ bash topinstall.sh
 pacman -R linux-lts
 
 #chroot-conf_________________________________________________________________|
+
+## ZFS-Repo_______________________________________________________
+
+zfsKey="DDF7DB817396A49B2A2723F7403BD972F75D9D76"
+
 cat < EOF >> /etc/pacman.conf
 
 [archzfs]
@@ -120,13 +117,10 @@ Include = /etc/pacman.d/endeavouros-mirrorlist
 
 EOF
 
-zfsKey="DDF7DB817396A49B2A2723F7403BD972F75D9D76"
-
-
 pacman-key --recv-keys "$zfsKey"
 pacman-key --lsign-key "$zfsKey"
 
-
+## EOS-Repo____________________________________________________
 enosKey="003DB8B0CB23504F"
 
 cat < EOF >> /etc/pacman.d/endeavouros-mirrorlist
@@ -160,8 +154,12 @@ pacman-key --keyserver keyserver.ubuntu.com -r "$enosKey"
 sudo pacman-key --lsign "$enosKey"
 
 
-
 #zfs-install_________________________________________________________________|
+
+#-----
+# TODO : use method https://openzfs.github.io/openzfs-docs/Getting%20Started/Arch%20Linux/Root%20on%20ZFS/2-system-installation.html
+#-----
+
 pacman -S zfs-linux zfs-utils linux-headers linux-firmware 
 
 cat > /etc/mkinitcpio.conf <<EOF
