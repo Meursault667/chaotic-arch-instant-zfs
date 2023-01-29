@@ -47,6 +47,7 @@ zpool set bootfs=zroot/ROOT/default zroot
 zpool export zroot
 
 #mount Filesystem____________________________________________________________|
+zpool import -d /dev/disk/by-id -R /mnt zroot -N
 # zpool import yourstupidid -R /mnt zroot
 # get your stupid id with "zpool import"
 zfs load-key -L prompt zroot
@@ -103,8 +104,6 @@ bash topinstall.sh
 pacman -R linux-lts
 
 #chroot-conf_________________________________________________________________|
-systemd-firstboot
-
 cat < EOF >> /etc/pacman.conf
 
 [archzfs]
@@ -179,10 +178,59 @@ ALL_kver="/boot/vmlinuz-linux"
 PRESETS=('default')
 default_image="/boot/initramfs-linux.img"
 EOF
+
+
 #ZFSBootMenu_________________________________________________________________|
-yay -S zfsbootmenu-efi-bin
-zfs set org.zfsbootmenu:commandline="rw" zroot/ROOT/default
-efibootmgr -c -d "$DISK" -p 1 -L "ZFSBootMenu" -l '\EFI\zbm\zfsbootmenu-release-vmlinuz-x86_64.EFI'
+pacman -S cpanminus kexec-tools fzf util-linux --noconfirm
+
+git clone --depth=1 https://github.com/zbm-dev/zfsbootmenu/
+cd zfsbootmenu
+make
+make install
+cpanm --notest --installdeps .
+mkdir -p /efi/EFI/ZBM
+
+cat > /etc/zfsbootmenu/mkinitcpio.conf <<"EOF"
+MODULES=()
+BINARIES=()
+FILES=()
+HOOKS=(base udev autodetect modconf block keyboard keymap)
+COMPRESSION="zstd"
+EOF
+
+cat > /etc/zfsbootmenu/config.yaml <<EOF
+Global:
+  ManageImages: true
+  BootMountPoint: /efi
+  InitCPIO: true
+Components:
+  Enabled: false
+EFI:
+  ImageDir: /efi/EFI/ZBM
+  Versions: false
+  Enabled: true
+Kernel:
+  CommandLine: ro quiet loglevel=0 zbm.import_policy=hostid
+  Prefix: vmlinuz
+EOF
+
+zfs set org.zfsbootmenu:commandline="rw quiet nowatchdog rd.vconsole.keymap=$keymap" $zpoolname/ROOT/"$root_dataset"
+
+generate-zbm
+
+
+efibootmgr --disk "$DISK" \
+      --part 1 \
+      --create \
+      --label "ZFSBootMenu Backup" \
+      --loader "\EFI\ZBM\vmlinuz-backup.efi" \
+      --verbose
+efibootmgr --disk "$DISK" \
+      --part 1 \
+      --create \
+      --label "ZFSBootMenu" \
+      --loader "\EFI\ZBM\vmlinuz.efi" \
+      --verbose
 
 
 #Enable Services_____________________________________________________________|
@@ -224,6 +272,8 @@ echo /dev/zvol/zroot/swap none swap discard 0 0 >> /etc/fstab
 echo RESUME=none > /etc/initramfs-tools/conf.d/RESUME
 
 swapon -av
+
+#Network_________________________________________________________________|
 
 
 
