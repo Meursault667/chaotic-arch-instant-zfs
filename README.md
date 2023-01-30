@@ -33,7 +33,7 @@ zpool create -f -o ashift=12         \
              -O compression=zstd       \
              -O encryption=aes-256-gcm \
              -O keyformat=passphrase   \
-             -O keylocation=prompt     \
+             -O keylocation=prompt    \
              zroot "$POOL"
              
 zpool set cachefile=/etc/zfs/zpool.cache zroot
@@ -60,7 +60,7 @@ zpool status -v
 mount | grep mnt
 
 #efi_________________________________________________________________________|
-mkfs.vfat $EFI
+mkfs.vfat -F32 $EFI
 mount --mkdir $EFI /mnt/efi
 
 
@@ -78,7 +78,6 @@ pacstrap -K -c /mnt    \
 genfstab -U -p /mnt >> /mnt/etc/fstab
 mkdir /mnt/etc/zfs
 cp /etc/zfs/zpool.cache /mnt/etc/zfs/zpool.cache
-rm -f /mnt/etc/localtime
 zgenhostid -f -o /mnt/etc/hostid
   
 #chroot______________________________________________________________________|
@@ -235,19 +234,9 @@ efibootmgr --disk "$DISK" \
 #Enable Services_____________________________________________________________|
 zpool set cachefile=/etc/zfs/zpool.cache zroot
 systemctl enable zfs-import-cache.service
-systemctl enable zfs-import.target
-
-mkdir /etc/zfs/zfs-list.cache
-ln -s /usr/lib/zfs/zed.d/history_event-zfs-list-cacher.sh /etc/zfs/zed.d
 systemctl enable zfs.target
-systemctl enable zfs-zed.service
-touch /etc/zfs/zfs-list.cache/zroot
-
-
-# -> if empty
-# zfs set canmount=noauto   zroot/ROOT/[...]
-
-zgenhostid $(hostid)
+systemctl enable zfs-import.target
+systemctl enable zfs-mount.service
 
 
 #regen initramfs_____________________________________________________________|
