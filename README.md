@@ -35,8 +35,6 @@ zpool create -f -o ashift=12         \
              -O keyformat=passphrase   \
              -O keylocation=prompt    \
              zroot "$POOL"
-             
-zpool set cachefile=/etc/zfs/zpool.cache zroot
 
 zfs create -o mountpoint=none zroot/ROOT
 zfs create -o mountpoint=/ -o canmount=noauto zroot/ROOT/default
